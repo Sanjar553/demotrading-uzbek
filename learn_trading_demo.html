@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="uz" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learn Trading (demo)</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lightweight Charts library from TradingView -->
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    
+    <style>
+        body {
+            background-color: #131722;
+            color: #d1d4dc;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            user-select: none;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e222d; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #363a45; 
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #505666; 
+        }
+        .panel {
+            background-color: #1e222d;
+            border: 1px solid #2a2e39;
+        }
+        input, select {
+            background-color: #2a2e39;
+            border: 1px solid #434651;
+            color: #d1d4dc;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #2962ff;
+        }
+        /* Custom glow effects for trading action */
+        .btn-buy-glow:hover {
+            box-shadow: 0 0 15px rgba(8, 153, 129, 0.4);
+        }
+        .btn-sell-glow:hover {
+            box-shadow: 0 0 15px rgba(242, 54, 69, 0.4);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col justify-between">
+
+    <!-- Navbar Header -->
+    <header class="panel flex flex-wrap justify-between items-center px-4 py-2.5 shadow-md z-10 shrink-0 gap-3">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-600/20 p-2 rounded-lg border border-blue-500/30 flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold text-white tracking-wide flex items-center gap-2">
+                    Learn Trading 
+                    <span class="text-xs bg-blue-500/20 text-blue-400 border border-blue-500/40 px-2 py-0.5 rounded font-mono font-semibold">DEMO</span>
+                </h1>
+                <p class="text-xs text-gray-400 hidden sm:block">Simulyatsiya & Amaliyot Platformasi</p>
+            </div>
+        </div>
+
+        <!-- Simulation Status & Pause/Resume Control -->
+        <div class="flex items-center gap-3 bg-[#131722] px-3 py-1.5 rounded-lg border border-[#2a2e39]">
+            <span id="marketStatusBadge" class="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="statusText">Jonli</span>
+            </span>
+            <button id="pausePlayBtn" onclick="togglePauseResume()" class="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded font-medium transition active:scale-95 shadow">
+                <span id="pausePlayIcon">⏸️</span>
+                <span id="pausePlayText">Pauza</span>
+            </button>
+            <button onclick="resetDemoBalance()" class="text-xs bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 px-2.5 py-1.5 rounded border border-[#434651] transition" title="Balansni qayta $10,000 qilish">
+                🔄 Balansni tiklash
+            </button>
+        </div>
+
+        <!-- Balance Metrics -->
+        <div class="flex items-center gap-6 text-xs sm:text-sm">
+            <div class="flex flex-col items-end">
+                <span class="text-gray-400 text-xs">Balans (Demo)</span>
+                <span class="text-base font-bold text-white font-mono" id="balanceDisplay">$10,000.00</span>
+            </div>
+            <div class="flex flex-col items-end">
+                <span class="text-gray-400 text-xs">Ochiq PnL</span>
+                <span class="text-base font-bold font-mono text-gray-400" id="totalPnlDisplay">$0.00</span>
+            </div>
+            <div class="flex flex-col items-end">
+                <span class="text-gray-400 text-xs">Jami Kapital (Equity)</span>
+                <span class="text-base font-bold text-emerald-400 font-mono" id="equityDisplay">$10,000.00</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Left: Interactive Trading Chart Area -->
+        <div class="flex-1 flex flex-col min-h-[380px] md:min-h-0 relative border-r border-[#2a2e39]">
+            
+            <!-- Chart Toolbar (Asset, Timeframe, Candle Speed) -->
+            <div class="bg-[#1e222d] border-b border-[#2a2e39] px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-xs z-10">
+                <div class="flex items-center gap-3">
+                    <!-- Pair Selector -->
+                    <select id="assetSelect" onchange="changeAsset()" class="bg-[#131722] text-white font-bold px-2.5 py-1 rounded border border-[#363a45] focus:ring-1 focus:ring-blue-500 cursor-pointer">
+                        <option value="BTCUSD">BTC/USD (Bitcoin)</option>
+                        <option value="ETHUSD">ETH/USD (Ethereum)</option>
+                        <option value="XAUUSD">XAU/USD (Oltin)</option>
+                        <option value="EURUSD">EUR/USD (Valyuta)</option>
+                    </select>
+
+                    <!-- Realtime Price Display Tag -->
+                    <div class="flex items-center gap-2 bg-[#131722] px-3 py-1 rounded border border-[#2a2e39]">
+                        <span class="text-gray-400 font-medium">Narx:</span>
+                        <span id="currentPriceTag" class="text-sm font-bold font-mono text-emerald-400">0.00</span>
+                    </div>
+                </div>
+
+                <!-- Timeframe Selection (1s, 5s, 1m, 1h, 1D, 7D) -->
+                <div class="flex items-center gap-1.5 bg-[#131722] p-1 rounded border border-[#2a2e39]">
+                    <span class="text-gray-400 px-1 font-semibold text-[11px] uppercase">Vaqt:</span>
+                    <button onclick="setTimeframe('1s')" class="tf-btn bg-blue-600 text-white px-2 py-0.5 rounded font-medium transition" data-tf="1s">1s</button>
+                    <button onclick="setTimeframe('5s')" class="tf-btn bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 px-2 py-0.5 rounded font-medium transition" data-tf="5s">5s</button>
+                    <button onclick="setTimeframe('1m')" class="tf-btn bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 px-2 py-0.5 rounded font-medium transition" data-tf="1m">1m</button>
+                    <button onclick="setTimeframe('1h')" class="tf-btn bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 px-2 py-0.5 rounded font-medium transition" data-tf="1h">1h</button>
+                    <button onclick="setTimeframe('1d')" class="tf-btn bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 px-2 py-0.5 rounded font-medium transition" data-tf="1d">1kun</button>
+                    <button onclick="setTimeframe('7d')" class="tf-btn bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 px-2 py-0.5 rounded font-medium transition" data-tf="7d">7kun</button>
+                </div>
+
+                <!-- Candle Update Speed Selector (Min 1s) -->
+                <div class="flex items-center gap-2 bg-[#131722] px-2.5 py-1 rounded border border-[#2a2e39]">
+                    <label for="speedSelect" class="text-gray-400 text-xs">Tezlik:</label>
+                    <select id="speedSelect" onchange="updateSimulationSpeed()" class="bg-[#1e222d] text-white text-xs px-2 py-0.5 rounded border border-[#363a45]">
+                        <option value="1000" selected>1 sekund (Har 1s)</option>
+                        <option value="2000">2 sekund</option>
+                        <option value="3000">3 sekund</option>
+                        <option value="5000">5 sekund</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Chart Container Div -->
+            <div id="chartContainer" class="flex-1 w-full h-full relative"></div>
+        </div>
+
+        <!-- Right: Order Form Sidebar -->
+        <div class="w-full md:w-80 panel p-4 flex flex-col shrink-0 overflow-y-auto bg-[#1e222d]">
+            <h2 class="text-sm font-bold mb-3 text-white border-b border-[#2a2e39] pb-2 uppercase tracking-wider flex items-center justify-between">
+                <span>Savdo Operatsiyasi</span>
+                <span class="text-xs text-gray-400 font-normal">Cheksiz Demo</span>
+            </h2>
+
+            <!-- Investment Amount Input Field (USD) -->
+            <div class="mb-4">
+                <label class="block text-xs text-gray-400 mb-1 font-semibold">
+                    Savdo Summasi ($ USD)
+                </label>
+                <div class="relative">
+                    <span class="absolute left-3 top-2.5 text-gray-400 font-bold">$</span>
+                    <input type="number" id="tradeAmountUSD" value="100" min="1" step="1" 
+                           class="w-full bg-[#131722] text-white pl-7 pr-3 py-2 rounded text-base font-bold font-mono border border-[#363a45] focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+                </div>
+                
+                <!-- Quick Amount Preset Buttons -->
+                <div class="grid grid-cols-4 gap-1.5 mt-2">
+                    <button onclick="setQuickAmount(10)" class="bg-[#2a2e39] hover:bg-[#363a45] text-xs py-1 rounded text-gray-300 font-mono transition">$10</button>
+                    <button onclick="setQuickAmount(50)" class="bg-[#2a2e39] hover:bg-[#363a45] text-xs py-1 rounded text-gray-300 font-mono transition">$50</button>
+                    <button onclick="setQuickAmount(100)" class="bg-[#2a2e39] hover:bg-[#363a45] text-xs py-1 rounded text-gray-300 font-mono transition">$100</button>
+                    <button onclick="setQuickAmount(500)" class="bg-[#2a2e39] hover:bg-[#363a45] text-xs py-1 rounded text-gray-300 font-mono transition">$500</button>
+                </div>
+            </div>
+
+            <!-- Leverage Multiplier Option -->
+            <div class="mb-5">
+                <div class="flex justify-between text-xs text-gray-400 mb-1">
+                    <span class="font-semibold">Kredit Yelka (Leverage)</span>
+                    <span id="leverageValueDisplay" class="text-blue-400 font-bold">10x</span>
+                </div>
+                <input type="range" id="leverageSlider" min="1" max="100" value="10" step="1" 
+                       oninput="updateLeverageDisplay()" class="w-full accent-blue-500 cursor-pointer h-1.5 bg-[#131722] rounded-lg">
+                <div class="flex justify-between text-[10px] text-gray-500 mt-1">
+                    <span>1x (Oddiy)</span>
+                    <span>50x</span>
+                    <span>100x (Maks)</span>
+                </div>
+            </div>
+
+            <!-- Buy & Sell Main Action Buttons -->
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <!-- BUY BUTTON (GREEN) -->
+                <button onclick="executeTrade('buy')" 
+                        class="bg-[#089981] hover:bg-[#078570] text-white py-3.5 px-2 rounded-lg font-bold text-sm shadow-md btn-buy-glow transition transform active:scale-95 flex flex-col items-center justify-center">
+                    <span class="uppercase tracking-wider flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                        Olish (Buy)
+                    </span>
+                    <span class="text-xs font-mono font-normal opacity-90 mt-0.5" id="btnBuyPrice">--</span>
+                </button>
+
+                <!-- SELL BUTTON (RED) -->
+                <button onclick="executeTrade('sell')" 
+                        class="bg-[#f23645] hover:bg-[#d92c3a] text-white py-3.5 px-2 rounded-lg font-bold text-sm shadow-md btn-sell-glow transition transform active:scale-95 flex flex-col items-center justify-center">
+                    <span class="uppercase tracking-wider flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"></path></svg>
+                        Sotish (Sell)
+                    </span>
+                    <span class="text-xs font-mono font-normal opacity-90 mt-0.5" id="btnSellPrice">--</span>
+                </button>
+            </div>
+
+            <!-- Toast / Message Box Notification -->
+            <div id="messageBox" class="hidden text-center py-2 px-3 rounded-lg mb-3 text-xs font-bold transition-all"></div>
+
+            <!-- Educational Info Card -->
+            <div class="mt-auto pt-3 border-t border-[#2a2e39]">
+                <div class="bg-[#131722] rounded-lg p-3 text-xs text-gray-400 space-y-1.5">
+                    <div class="text-white font-bold flex items-center gap-1">
+                        <span>💡 Treyding maslahati</span>
+                    </div>
+                    <p class="text-[11px] leading-relaxed">
+                        • <b>Olish (Buy):</b> Narx ko'tarilishiga ishonganingizda tanlanadi.<br>
+                        • <b>Sotish (Sell):</b> Narx pasayishidan foyda olish uchun ishlatiladi.<br>
+                        • <b>Kredit yelka:</b> Foydani va xavfni ko'paytiradi.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Bottom Panel: Active Positions & History -->
+    <div class="panel h-52 shrink-0 flex flex-col border-t border-[#2a2e39]">
+        <div class="px-4 py-2 border-b border-[#2a2e39] bg-[#1e222d] flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <h3 class="font-bold text-white text-xs uppercase tracking-wider">Ochiq Pozitsiyalar</h3>
+                <span id="positionCount" class="bg-blue-600/30 text-blue-400 text-xs px-2 py-0.5 rounded-full font-mono font-bold">0</span>
+            </div>
+            <button onclick="closeAllPositions()" class="text-xs bg-[#2a2e39] hover:bg-[#363a45] hover:text-white text-gray-300 px-3 py-1 rounded border border-[#434651] transition">
+                Barchasini Yopish
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-auto bg-[#131722]">
+            <table class="w-full text-left text-xs text-gray-300">
+                <thead class="bg-[#1e222d] text-gray-400 font-semibold uppercase sticky top-0 z-10 border-b border-[#2a2e39]">
+                    <tr>
+                        <th class="px-4 py-2">Aktiv</th>
+                        <th class="px-4 py-2">Tur</th>
+                        <th class="px-4 py-2">Mabla'g ($)</th>
+                        <th class="px-4 py-2">Yelka</th>
+                        <th class="px-4 py-2">Ochilgan Narx</th>
+                        <th class="px-4 py-2">Hozirgi Narx</th>
+                        <th class="px-4 py-2">Foyda / Zarar (PnL)</th>
+                        <th class="px-4 py-2 text-right">Amal</th>
+                    </tr>
+                </thead>
+                <tbody id="positionsTableBody" class="divide-y divide-[#2a2e39]">
+                    <!-- Dynamic Position Rows Inserted via JS -->
+                </tbody>
+            </table>
+
+            <div id="noPositionsMsg" class="text-center py-8 text-gray-500 text-xs">
+                Ayni paytda ochiq savdolar yo'q. "Olish" yoki "Sotish" tugmasini bosing.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let balance = 10000.00;
+        let positions = [];
+        let currentAsset = 'BTCUSD';
+        let currentPrice = 65000.00;
+        let positionIdCounter = 1;
+        
+        let chart = null;
+        let candleSeries = null;
+        
+        let isPaused = false;
+        let simulationTimer = null;
+        let updateIntervalMs = 1000; // Default 1 second
+        
+        let currentTimeframe = '1s'; // Default 1 second
+        let lastTime = Math.floor(Date.now() / 1000);
+
+        // Asset configurations
+        const ASSETS = {
+            'BTCUSD': { name: 'BTC/USD', startPrice: 65000, decimals: 2, volatility: 25 },
+            'ETHUSD': { name: 'ETH/USD', startPrice: 3500, decimals: 2, volatility: 3.5 },
+            'XAUUSD': { name: 'XAU/USD (Gold)', startPrice: 2350, decimals: 2, volatility: 1.5 },
+            'EURUSD': { name: 'EUR/USD', startPrice: 1.0850, decimals: 4, volatility: 0.0008 }
+        };
+
+        // Active Candlestick Bar state
+        let currentCandle = {
+            time: lastTime,
+            open: currentPrice,
+            high: currentPrice,
+            low: currentPrice,
+            close: currentPrice
+        };
+
+        // --- DOM Cache ---
+        const balanceDisplay = document.getElementById('balanceDisplay');
+        const equityDisplay = document.getElementById('equityDisplay');
+        const totalPnlDisplay = document.getElementById('totalPnlDisplay');
+        const currentPriceTag = document.getElementById('currentPriceTag');
+        const btnBuyPrice = document.getElementById('btnBuyPrice');
+        const btnSellPrice = document.getElementById('btnSellPrice');
+        const tradeAmountUSD = document.getElementById('tradeAmountUSD');
+        const leverageSlider = document.getElementById('leverageSlider');
+        const leverageValueDisplay = document.getElementById('leverageValueDisplay');
+        const positionsTableBody = document.getElementById('positionsTableBody');
+        const noPositionsMsg = document.getElementById('noPositionsMsg');
+        const positionCount = document.getElementById('positionCount');
+        const messageBox = document.getElementById('messageBox');
+        const pausePlayBtn = document.getElementById('pausePlayBtn');
+        const pausePlayIcon = document.getElementById('pausePlayIcon');
+        const pausePlayText = document.getElementById('pausePlayText');
+        const marketStatusBadge = document.getElementById('marketStatusBadge');
+        const statusText = document.getElementById('statusText');
+
+        function initChart() {
+            const chartContainer = document.getElementById('chartContainer');
+            chartContainer.innerHTML = ''; // Reset container
+
+            // Create Lightweight Chart instance
+            chart = LightweightCharts.createChart(chartContainer, {
+                width: chartContainer.clientWidth,
+                height: chartContainer.clientHeight,
+                layout: {
+                    background: { type: 'solid', color: '#131722' },
+                    textColor: '#9B9B9B',
+                },
+                grid: {
+                    vertLines: { color: '#1f2431' },
+                    horzLines: { color: '#1f2431' },
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                },
+                rightPriceScale: {
+                    borderColor: '#2a2e39',
+                    scaleMargins: {
+                        top: 0.1,
+                        bottom: 0.1,
+                    },
+                },
+                timeScale: {
+                    borderColor: '#2a2e39',
+                    timeVisible: true,
+                    secondsVisible: true,
+                },
+            });
+
+            // SAFELY ADD CANDLESTICK SERIES (Handles API variations across Lightweight Charts versions)
+            const candleOptions = {
+                upColor: '#089981',        // Green up candles
+                downColor: '#f23645',      // Red down candles
+                borderUpColor: '#089981',
+                borderDownColor: '#f23645',
+                wickUpColor: '#089981',
+                wickDownColor: '#f23645',
+            };
+
+            if (typeof chart.addCandlestickSeries === 'function') {
+                candleSeries = chart.addCandlestickSeries(candleOptions);
+            } else if (typeof chart.addSeries === 'function' && LightweightCharts.CandlestickSeries) {
+                candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, candleOptions);
+            } else {
+                console.error("CandlestickSeries topilmadi. Kutubxona yuklanishida xatolik.");
+                return;
+            }
+
+            // Generate Historical Bars
+            generateHistoryData();
+
+            // Handle Responsive Window Resizing
+            window.addEventListener('resize', () => {
+                if (chart && chartContainer) {
+                    chart.applyOptions({
+                        width: chartContainer.clientWidth,
+                        height: chartContainer.clientHeight
+                    });
+                }
+            });
+        }
+
+        function generateHistoryData() {
+            const assetConfig = ASSETS[currentAsset];
+            currentPrice = assetConfig.startPrice;
+            
+            const historicalData = [];
+            let price = currentPrice;
+            let time = Math.floor(Date.now() / 1000) - 100 * getSecondsPerTimeframe(currentTimeframe);
+
+            const timeStep = getSecondsPerTimeframe(currentTimeframe);
+
+            for (let i = 0; i < 100; i++) {
+                const open = price;
+                const delta = (Math.random() - 0.49) * assetConfig.volatility;
+                const close = open + delta;
+                const high = Math.max(open, close) + Math.random() * (assetConfig.volatility * 0.5);
+                const low = Math.min(open, close) - Math.random() * (assetConfig.volatility * 0.5);
+
+                historicalData.push({
+                    time: time,
+                    open: parseFloat(open.toFixed(assetConfig.decimals)),
+                    high: parseFloat(high.toFixed(assetConfig.decimals)),
+                    low: parseFloat(low.toFixed(assetConfig.decimals)),
+                    close: parseFloat(close.toFixed(assetConfig.decimals))
+                });
+
+                price = close;
+                time += timeStep;
+            }
+
+            candleSeries.setData(historicalData);
+
+            // Set current candle tracking variables
+            currentPrice = price;
+            lastTime = time;
+            currentCandle = {
+                time: lastTime,
+                open: currentPrice,
+                high: currentPrice,
+                low: currentPrice,
+                close: currentPrice
+            };
+
+            updatePriceDisplays();
+        }
+
+        function tickMarket() {
+            if (isPaused) return;
+
+            const assetConfig = ASSETS[currentAsset];
+            
+            // Random walk fluctuation algorithm
+            const change = (Math.random() - 0.49) * assetConfig.volatility;
+            currentPrice += change;
+            if (currentPrice <= 0.0001) currentPrice = 0.0001;
+
+            currentPrice = parseFloat(currentPrice.toFixed(assetConfig.decimals));
+
+            // Update Candle metrics
+            currentCandle.close = currentPrice;
+            if (currentPrice > currentCandle.high) currentCandle.high = currentPrice;
+            if (currentPrice < currentCandle.low) currentCandle.low = currentPrice;
+
+            // Render updated candle on chart
+            candleSeries.update(currentCandle);
+
+            // Time step increment for next candle frame
+            lastTime += getSecondsPerTimeframe(currentTimeframe);
+            currentCandle = {
+                time: lastTime,
+                open: currentPrice,
+                high: currentPrice,
+                low: currentPrice,
+                close: currentPrice
+            };
+
+            updatePriceDisplays();
+            updatePositionsUI();
+        }
+
+        function startSimulation() {
+            if (simulationTimer) clearInterval(simulationTimer);
+            simulationTimer = setInterval(tickMarket, updateIntervalMs);
+        }
+
+        function togglePauseResume() {
+            isPaused = !isPaused;
+            if (isPaused) {
+                pausePlayIcon.innerText = "▶️";
+                pausePlayText.innerText = "Davom ettirish";
+                pausePlayBtn.className = "flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded font-medium transition active:scale-95 shadow";
+                
+                marketStatusBadge.className = "flex items-center gap-1.5 text-xs font-semibold text-amber-400 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20";
+                statusText.innerText = "To'xtatildi";
+            } else {
+                pausePlayIcon.innerText = "⏸️";
+                pausePlayText.innerText = "Pauza";
+                pausePlayBtn.className = "flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded font-medium transition active:scale-95 shadow";
+                
+                marketStatusBadge.className = "flex items-center gap-1.5 text-xs font-semibold text-emerald-400 px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20";
+                statusText.innerText = "Jonli";
+            }
+        }
+
+        function updateSimulationSpeed() {
+            const select = document.getElementById('speedSelect');
+            updateIntervalMs = parseInt(select.value, 10) || 1000;
+            startSimulation();
+        }
+
+        function changeAsset() {
+            const select = document.getElementById('assetSelect');
+            currentAsset = select.value;
+            initChart();
+        }
+
+        function setTimeframe(tf) {
+            currentTimeframe = tf;
+            document.querySelectorAll('.tf-btn').forEach(btn => {
+                if (btn.dataset.tf === tf) {
+                    btn.className = "tf-btn bg-blue-600 text-white px-2 py-0.5 rounded font-medium transition";
+                } else {
+                    btn.className = "tf-btn bg-[#2a2e39] hover:bg-[#363a45] text-gray-300 px-2 py-0.5 rounded font-medium transition";
+                }
+            });
+            initChart();
+        }
+
+        function getSecondsPerTimeframe(tf) {
+            switch(tf) {
+                case '1s': return 1;
+                case '5s': return 5;
+                case '1m': return 60;
+                case '1h': return 3600;
+                case '1d': return 86400;
+                case '7d': return 604800; // 7 days in seconds
+                default: return 1;
+            }
+        }
+
+        function setQuickAmount(amt) {
+            tradeAmountUSD.value = amt;
+        }
+
+        function updateLeverageDisplay() {
+            leverageValueDisplay.innerText = leverageSlider.value + 'x';
+        }
+
+        function executeTrade(type) {
+            const amountUsd = parseFloat(tradeAmountUSD.value);
+            const leverage = parseInt(leverageSlider.value, 10);
+
+            if (isNaN(amountUsd) || amountUsd <= 0) {
+                showMessage("Iltimos, to'g'ri summa kiriting!", 'error');
+                return;
+            }
+
+            if (amountUsd > balance) {
+                showMessage("Balansda yetarli mablag' mavjud emas!", 'error');
+                return;
+            }
+
+            const position = {
+                id: positionIdCounter++,
+                asset: currentAsset,
+                type: type,
+                amountUsd: amountUsd,
+                leverage: leverage,
+                entryPrice: currentPrice,
+                decimals: ASSETS[currentAsset].decimals
+            };
+
+            positions.unshift(position);
+            showMessage(`Muvaffaqiyatli: $${amountUsd} bilan ${type === 'buy' ? 'BUY (Olish)' : 'SELL (Sotish)'} ochildi!`, 'success');
+            updatePositionsUI();
+        }
+
+        function closePosition(id) {
+            const index = positions.findIndex(p => p.id === id);
+            if (index > -1) {
+                const pos = positions[index];
+                const pnl = calculatePnL(pos);
+                balance += pnl;
+                positions.splice(index, 1);
+
+                const formattedPnl = (pnl >= 0 ? '+' : '') + formatMoney(pnl);
+                showMessage(`Pozitsiya yopildi. Foyda/Zarar: ${formattedPnl}`, pnl >= 0 ? 'success' : 'error');
+                updatePositionsUI();
+            }
+        }
+
+        function closeAllPositions() {
+            if (positions.length === 0) return;
+
+            let totalPnl = 0;
+            positions.forEach(pos => {
+                totalPnl += calculatePnL(pos);
+            });
+
+            balance += totalPnl;
+            positions = [];
+
+            showMessage(`Barcha pozitsiyalar yopildi. Jami: ${(totalPnl >= 0 ? '+' : '') + formatMoney(totalPnl)}`, totalPnl >= 0 ? 'success' : 'error');
+            updatePositionsUI();
+        }
+
+        function calculatePnL(pos) {
+            let priceDiffRatio = (currentPrice - pos.entryPrice) / pos.entryPrice;
+            if (pos.type === 'sell') {
+                priceDiffRatio = -priceDiffRatio;
+            }
+            return pos.amountUsd * priceDiffRatio * pos.leverage;
+        }
+
+        function resetDemoBalance() {
+            balance = 10000.00;
+            positions = [];
+            updatePositionsUI();
+            showMessage("Demo balans $10,000 ga tiklandi!", 'success');
+        }
+
+        function formatMoney(val) {
+            return '$' + val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function updatePriceDisplays() {
+            const assetConfig = ASSETS[currentAsset];
+            const priceStr = currentPrice.toFixed(assetConfig.decimals);
+            
+            currentPriceTag.innerText = priceStr;
+            btnBuyPrice.innerText = priceStr;
+            btnSellPrice.innerText = priceStr;
+
+            if (currentCandle.close >= currentCandle.open) {
+                currentPriceTag.className = "text-sm font-bold font-mono text-[#089981]";
+            } else {
+                currentPriceTag.className = "text-sm font-bold font-mono text-[#f23645]";
+            }
+        }
+
+        function updatePositionsUI() {
+            positionCount.innerText = positions.length;
+
+            if (positions.length === 0) {
+                positionsTableBody.innerHTML = '';
+                noPositionsMsg.classList.remove('hidden');
+
+                balanceDisplay.innerText = formatMoney(balance);
+                equityDisplay.innerText = formatMoney(balance);
+                totalPnlDisplay.innerText = '$0.00';
+                totalPnlDisplay.className = "text-base font-bold font-mono text-gray-400";
+                return;
+            }
+
+            noPositionsMsg.classList.add('hidden');
+            let totalUnrealizedPnl = 0;
+            let rowsHtml = '';
+
+            positions.forEach(pos => {
+                const pnl = calculatePnL(pos);
+                totalUnrealizedPnl += pnl;
+
+                const isBuy = pos.type === 'buy';
+                const badgeClass = isBuy ? 'bg-[#089981]/20 text-[#089981] border-[#089981]/30' : 'bg-[#f23645]/20 text-[#f23645] border-[#f23645]/30';
+                const typeLabel = isBuy ? 'BUY (Olish)' : 'SELL (Sotish)';
+
+                const pnlColor = pnl >= 0 ? 'text-[#089981]' : 'text-[#f23645]';
+                const pnlSign = pnl >= 0 ? '+' : '';
+
+                rowsHtml += `
+                    <tr class="hover:bg-[#1e222d] transition border-b border-[#2a2e39]/50">
+                        <td class="px-4 py-2.5 font-bold text-white">${pos.asset}</td>
+                        <td class="px-4 py-2.5">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeClass}">${typeLabel}</span>
+                        </td>
+                        <td class="px-4 py-2.5 font-mono text-white">$${pos.amountUsd}</td>
+                        <td class="px-4 py-2.5 font-mono text-blue-400">${pos.leverage}x</td>
+                        <td class="px-4 py-2.5 font-mono">${pos.entryPrice.toFixed(pos.decimals)}</td>
+                        <td class="px-4 py-2.5 font-mono">${currentPrice.toFixed(pos.decimals)}</td>
+                        <td class="px-4 py-2.5 font-mono font-bold ${pnlColor}">${pnlSign}${formatMoney(pnl)}</td>
+                        <td class="px-4 py-2.5 text-right">
+                            <button onclick="closePosition(${pos.id})" class="bg-[#2a2e39] hover:bg-[#363a45] text-white px-2.5 py-1 rounded text-[11px] border border-[#434651] transition">
+                                Yopish
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            positionsTableBody.innerHTML = rowsHtml;
+
+            const equity = balance + totalUnrealizedPnl;
+            balanceDisplay.innerText = formatMoney(balance);
+            equityDisplay.innerText = formatMoney(equity);
+
+            const pnlStr = (totalUnrealizedPnl >= 0 ? '+' : '') + formatMoney(totalUnrealizedPnl);
+            totalPnlDisplay.innerText = pnlStr;
+            totalPnlDisplay.className = "text-base font-bold font-mono " + (totalUnrealizedPnl >= 0 ? 'text-[#089981]' : 'text-[#f23645]');
+        }
+
+        function showMessage(msg, type) {
+            messageBox.innerText = msg;
+            messageBox.className = `py-2 px-3 rounded-lg mb-3 text-xs font-bold text-white shadow-md ${type === 'success' ? 'bg-[#089981]' : 'bg-[#f23645]'}`;
+            messageBox.classList.remove('hidden');
+
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 3000);
+        }
+
+        window.onload = function() {
+            initChart();
+            startSimulation();
+        };
+    </script>
+</body>
+</html>
